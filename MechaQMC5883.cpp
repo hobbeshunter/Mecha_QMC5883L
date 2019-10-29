@@ -2,21 +2,24 @@
 
 #include <Wire.h>
 
-void MechaQMC5883::setAddress(uint8_t addr){
+void MechaQMC5883::setAddress(uint8_t addr)
+{
   address = addr;
 }
 
-void MechaQMC5883::WriteReg(byte Reg,byte val){
+void MechaQMC5883::writeReg(byte reg, byte val)
+{
   Wire.beginTransmission(address); //start talking
-  Wire.write(Reg); // Tell the HMC5883 to Continuously Measure
-  Wire.write(val); // Set the Register
+  Wire.write(reg);                 // Choose register
+  Wire.write(val);                 // Set the register
   Wire.endTransmission();
 }
 
-void MechaQMC5883::init(){
-  WriteReg(0x0B,0x01);
+void MechaQMC5883::init()
+{
+  writeReg(0x0B, 0x01);
   //Define Set/Reset period
-  setMode(Mode_Continuous,ODR_200Hz,RNG_8G,OSR_512);
+  setMode(Mode_Continuous, ODR_200Hz, RNG_8G, OSR_512);
   /*
   Define
   OSR = 512
@@ -26,13 +29,24 @@ void MechaQMC5883::init(){
   */
 }
 
-void MechaQMC5883::setMode(uint16_t mode,uint16_t odr,uint16_t rng,uint16_t osr){
-  WriteReg(0x09,mode|odr|rng|osr);
+void MechaQMC5883::setMode(uint16_t mode, uint16_t odr, uint16_t rng, uint16_t osr)
+{
+  writeReg(0x09, mode | odr | rng | osr);
+
+  switch (rng)
+  {
+  case RNG_2G:
+    lsb_to_g = RNG_2G_LSB_TO_G;
+    break;
+  case RNG_8G:
+    lsb_to_g = RNG_8G_LSB_TO_G;
+    break;
+  }
 }
 
-
-void MechaQMC5883::softReset(){
-  WriteReg(0x0A,0x80);
+void MechaQMC5883::softReset()
+{
+  writeReg(0x0A, 0x80);
 }
 
 /**
@@ -45,33 +59,33 @@ void MechaQMC5883::softReset(){
  *  - 4:other error
  *  - 8:overflow (magnetic field too strong)
  */
-int MechaQMC5883::read(int* x,int* y,int* z){
+int MechaQMC5883::readRaw(int16_t &x, int16_t &y, int16_t &z)
+{
   Wire.beginTransmission(address);
   Wire.write(0x00);
   int err = Wire.endTransmission();
-  if (err) {return err;}
-  Wire.requestFrom(address, 7);
-  *x = (int)(int16_t)(Wire.read() | Wire.read() << 8);
-  *y = (int)(int16_t)(Wire.read() | Wire.read() << 8);
-  *z = (int)(int16_t)(Wire.read() | Wire.read() << 8);
+  if (err)
+    return err;
+
+  Wire.requestFrom(address, 6);
+  x = Wire.read();       //LSB  x
+  x |= Wire.read() << 8; //MSB  x
+  y = Wire.read();       //LSB  z
+  y |= Wire.read() << 8; //MSB z
+  z = Wire.read();       //LSB y
+  z |= Wire.read() << 8; //MSB y
+
   byte overflow = Wire.read() & 0x02;
   return overflow << 2;
 }
 
-int MechaQMC5883::read(int* x,int* y,int* z,int* a){
-  int err = read(x,y,z);
-  *a = azimuth(y,x);
+int MechaQMC5883::read(float &x, float &y, float &z)
+{
+  int16_t ix, iy, iz;
+  int err = readRaw(ix, iy, iz);
+  x = (float)-iy * lsb_to_g;
+  y = (float)-ix * lsb_to_g;
+  z = (float)iz * lsb_to_g;
+
   return err;
-}
-
-int MechaQMC5883::read(int* x,int* y,int* z,float* a){
-  int err = read(x,y,z);
-  *a = azimuth(y,x);
-  return err;
-}
-
-
-float MechaQMC5883::azimuth(int *a, int *b){
-  float azimuth = atan2((int)*a,(int)*b) * 180.0/PI;
-  return azimuth < 0?360 + azimuth:azimuth;
 }
