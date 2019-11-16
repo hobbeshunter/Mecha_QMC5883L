@@ -84,7 +84,7 @@ int MechaQMC5883::read(float &x, float &y, float &z)
   int16_t ix, iy, iz;
   int err = readRaw(ix, iy, iz);
   x = (float)-iy * lsb_to_g;
-  y = (float)-ix * lsb_to_g;
+  y = (float)ix * lsb_to_g;
   z = (float)iz * lsb_to_g;
 
   return err;
