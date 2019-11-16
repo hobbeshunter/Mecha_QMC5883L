@@ -1,0 +1,10 @@
+{
+    "name": "QMC5883L",
+    "description": "",
+    "keywords": "magnetometer",
+    "repository":
+    {
+        "type": "git",
+        "url": "https://github.com/hobbeshunter/Mecha_QMC5883L.git"
+    }
+}
